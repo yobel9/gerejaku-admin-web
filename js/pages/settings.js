@@ -55,6 +55,29 @@ const Settings = {
                 `}
             </div>
 
+            <div class="card" style="margin-bottom: 20px;">
+                <div class="card-header">
+                    <h3 class="card-title">Sinkronisasi Database (Manual)</h3>
+                </div>
+                ${isAdmin ? `
+                    <p style="color: var(--text-secondary); margin-bottom: 14px;">
+                        Gunakan fitur ini untuk uji koneksi dan sinkron data lokal dengan Supabase secara manual selama fase development.
+                    </p>
+                    <div style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="btn btn-secondary" onclick="Settings.testDbConnection()">Test Koneksi DB</button>
+                        <button class="btn btn-secondary" onclick="Settings.pushToDatabase()">Push Local ke DB</button>
+                        <button class="btn btn-primary" onclick="Settings.pullFromDatabase()">Pull DB ke Local</button>
+                    </div>
+                    <p style="color: var(--text-muted); margin-top: 10px; font-size: 0.86rem;">
+                        Catatan: tabel Supabase yang dipakai harus punya kolom: <code>id</code> (text, primary key), <code>payload</code> (jsonb), <code>updated_at</code> (timestamptz).
+                    </p>
+                ` : `
+                    <p style="color: var(--text-secondary); margin: 0;">
+                        Sinkronisasi database hanya tersedia untuk akun admin.
+                    </p>
+                `}
+            </div>
+
             <div class="card">
                 <div class="card-header">
                     <h3 class="card-title">Backup & Restore Data</h3>
@@ -103,5 +126,34 @@ const Settings = {
 
         Components.toast('Pengaturan storage disimpan.', 'success');
         this.render();
+    },
+
+    async testDbConnection() {
+        try {
+            await StorageService.testDatabaseConnection();
+            Components.toast('Koneksi database berhasil.', 'success');
+        } catch (error) {
+            Components.toast(`Koneksi database gagal: ${error.message}`, 'error');
+        }
+    },
+
+    async pushToDatabase() {
+        try {
+            await StorageService.pushLocalDataToDatabase('churchAdminData');
+            Components.toast('Push data lokal ke database berhasil.', 'success');
+        } catch (error) {
+            Components.toast(`Push gagal: ${error.message}`, 'error');
+        }
+    },
+
+    async pullFromDatabase() {
+        try {
+            await StorageService.pullDatabaseDataToLocal('churchAdminData');
+            AppData.init();
+            Components.toast('Pull data dari database berhasil. Halaman akan dimuat ulang.', 'success');
+            setTimeout(() => window.location.reload(), 500);
+        } catch (error) {
+            Components.toast(`Pull gagal: ${error.message}`, 'error');
+        }
     }
 };
