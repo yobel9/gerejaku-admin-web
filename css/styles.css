@@ -292,6 +292,7 @@ a:hover {
 .main-content {
     flex: 1;
     margin-left: var(--sidebar-width);
+    min-width: 0;
     min-height: 100vh;
     display: flex;
     flex-direction: column;
@@ -498,7 +499,8 @@ body.sidebar-minimized .sidebar-minimize svg {
 .content {
     flex: 1;
     padding: 32px;
-    overflow-x: hidden;
+    min-width: 0;
+    overflow-x: visible;
     max-width: 100%;
 }
 
@@ -510,7 +512,7 @@ body.sidebar-minimized .sidebar-minimize svg {
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-sm);
     padding: 24px;
-    overflow: hidden;
+    overflow: visible;
 }
 
 .card:hover {
@@ -792,8 +794,11 @@ body.sidebar-minimized .sidebar-minimize svg {
    Tables
    ============================================ */
 .table-container {
+    display: block;
     width: 100%;
+    max-width: 100%;
     overflow-x: auto;
+    overflow-y: visible;
     -webkit-overflow-scrolling: touch;
     scroll-behavior: smooth;
 }
@@ -840,7 +845,8 @@ body.sidebar-minimized .sidebar-minimize svg {
 }
 
 .table {
-    width: 100%;
+    width: max-content;
+    min-width: 100%;
     border-collapse: collapse;
 }
 
@@ -1684,6 +1690,23 @@ body.sidebar-minimized .sidebar-minimize svg {
 
 /* Members table: keep right-side columns visible on narrower desktop widths */
 @media (min-width: 769px) {
+    .structure-table {
+        min-width: 980px;
+        table-layout: auto;
+    }
+
+    .structure-table th,
+    .structure-table td {
+        white-space: normal;
+        word-break: break-word;
+    }
+
+    .structure-table th:last-child,
+    .structure-table td:last-child {
+        min-width: 120px;
+        white-space: nowrap;
+    }
+
     .members-table {
         min-width: 100%;
     }
@@ -1723,8 +1746,8 @@ body.sidebar-minimized .sidebar-minimize svg {
     }
 
     .finance-table {
-        min-width: 1000px;
-        table-layout: fixed;
+        min-width: 1100px;
+        table-layout: auto;
     }
 
     .finance-table th,
@@ -1772,7 +1795,7 @@ body.sidebar-minimized .sidebar-minimize svg {
 
     .finance-table th:last-child,
     .finance-table td:last-child {
-        width: 84px;
+        width: 120px;
         white-space: nowrap;
     }
 

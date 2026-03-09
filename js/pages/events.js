@@ -8,6 +8,7 @@ const Events = {
     currentPage: 1,
     itemsPerPage: 10,
     filters: {
+        search: '',
         status: '',
         category: ''
     },
@@ -28,6 +29,10 @@ const Events = {
 
             <div class="card">
                 <div class="filters">
+                    <div class="filter-group">
+                        <label>Cari:</label>
+                        <input id="eventsSearchInput" type="text" class="form-input" placeholder="Nama acara, lokasi, deskripsi..." value="${this.filters.search}" oninput="Events.handleSearch(this.value)">
+                    </div>
                     <div class="filter-group">
                         <label>Status:</label>
                         <select class="form-select" onchange="Events.handleStatusFilter(this.value)">
@@ -77,10 +82,14 @@ const Events = {
 
     applyFilters() {
         this.filteredEvents = this.events.filter(event => {
+            const matchSearch = !this.filters.search
+                || (event.name || '').toLowerCase().includes(this.filters.search.toLowerCase())
+                || (event.location || '').toLowerCase().includes(this.filters.search.toLowerCase())
+                || (event.description || '').toLowerCase().includes(this.filters.search.toLowerCase());
             const matchStatus = !this.filters.status || event.status === this.filters.status;
             const matchCategory = !this.filters.category || event.category === this.filters.category;
             
-            return matchStatus && matchCategory;
+            return matchSearch && matchStatus && matchCategory;
         });
 
         // Sort by date ascending
@@ -154,6 +163,7 @@ const Events = {
                                 <div>👥 ${event.attendees?.length || 0} peserta</div>
                             </div>
                             <div style="display: flex; justify-content: flex-end; gap: 8px;">
+                                <button class="btn btn-sm btn-secondary" onclick="Events.shareToWhatsApp('${event.id}')">Share WA</button>
                                 <button class="btn btn-sm btn-secondary" onclick="Events.viewEvent('${event.id}')">Lihat</button>
                                 <button class="btn btn-sm btn-primary" onclick="Events.editEvent('${event.id}')">Edit</button>
                             </div>
@@ -180,6 +190,9 @@ const Events = {
                         <button class="action-btn view" onclick="Events.viewEvent('${event.id}')" title="Lihat">
                             <svg viewBox="0 0 24 24" fill="none"><path d="M1 12S5 4 12 4s11 8 11 8-4 8-11 8-11-8-11-8z" stroke="currentColor" stroke-width="2"/><circle cx="12" cy="12" r="3" stroke="currentColor" stroke-width="2"/></svg>
                         </button>
+                        <button class="action-btn" onclick="Events.shareToWhatsApp('${event.id}')" title="Share WhatsApp">
+                            <svg viewBox="0 0 24 24" fill="none"><path d="M20.5 11.5C20.5 16.1944 16.6944 20 12 20C10.5784 20 9.23831 19.6513 8.06047 19.0348L3.5 20.5L4.96518 15.9395C4.34869 14.7617 4 13.4216 4 12C4 7.30558 7.80558 3.5 12.5 3.5C17.1944 3.5 21 7.30558 21 12" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        </button>
                         <button class="action-btn edit" onclick="Events.editEvent('${event.id}')" title="Edit">
                             <svg viewBox="0 0 24 24" fill="none"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7" stroke="currentColor" stroke-width="2"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z" stroke="currentColor" stroke-width="2"/></svg>
                         </button>
@@ -200,6 +213,13 @@ const Events = {
     changePage(page) {
         this.currentPage = page;
         this.render();
+    },
+
+    handleSearch(value) {
+        this.filters.search = value;
+        this.applyFilters();
+        this.render();
+        Components.preserveInputFocus('eventsSearchInput', value);
     },
 
     handleStatusFilter(value) {
@@ -409,10 +429,36 @@ const Events = {
 
         const footerHtml = `
             <button class="btn btn-secondary" onclick="Components.closeModal()">Tutup</button>
+            <button class="btn btn-secondary" onclick="Events.shareToWhatsApp('${event.id}')">Share WA</button>
             <button class="btn btn-primary" onclick="Components.closeModal(); Events.editEvent('${event.id}')">Edit</button>
         `;
 
         Components.modal('Detail Acara', bodyHtml, footerHtml);
+    },
+
+    composeShareMessage(event) {
+        const lines = [
+            `*${(event.name || 'EVENT').toUpperCase()}*`,
+            `Tanggal: ${Components.formatDate(event.date)}`,
+            `Waktu: ${event.time || '-'}${event.endTime ? ` - ${event.endTime}` : ''}`,
+            `Lokasi: ${event.location || '-'}`
+        ];
+
+        if (event.description) {
+            lines.push('');
+            lines.push(event.description);
+        }
+
+        return lines.join('\n');
+    },
+
+    shareToWhatsApp(id) {
+        const event = this.events.find(e => e.id === id);
+        if (!event) return;
+
+        const message = this.composeShareMessage(event);
+        const url = `https://wa.me/?text=${encodeURIComponent(message)}`;
+        window.open(url, '_blank', 'noopener,noreferrer');
     },
 
     saveEvent() {

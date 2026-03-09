@@ -37,7 +37,7 @@ const Attendance = {
 
             <div class="card">
                 <div class="table-container">
-                    <table class="table">
+                    <table class="table structure-table">
                         <thead>
                             <tr>
                                 <th>Role</th>
