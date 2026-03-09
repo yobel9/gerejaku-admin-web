@@ -16,6 +16,33 @@ const AppData = {
             data.expenses = [];
             this.saveData(data);
         }
+        if (!Array.isArray(data.users)) {
+            data.users = this.getDefaultUsers();
+            this.saveData(data);
+        }
+        if (Array.isArray(data.users)) {
+            let hasUserUpdate = false;
+            data.users = data.users.map((item) => {
+                if (!item || typeof item !== 'object') return item;
+                const nextItem = { ...item };
+                if (nextItem.role === undefined) {
+                    nextItem.role = 'staff';
+                    hasUserUpdate = true;
+                }
+                if (nextItem.status === undefined) {
+                    nextItem.status = 'active';
+                    hasUserUpdate = true;
+                }
+                if (nextItem.name === undefined) {
+                    nextItem.name = nextItem.username || 'User';
+                    hasUserUpdate = true;
+                }
+                return nextItem;
+            });
+            if (hasUserUpdate) {
+                this.saveData(data);
+            }
+        }
         if (!Array.isArray(data.structure)) {
             data.structure = this.getDefaultStructure();
             this.saveData(data);
@@ -147,6 +174,7 @@ const AppData = {
         const today = now.toISOString().split('T')[0];
         
         return {
+            users: this.getDefaultUsers(),
             members: [
                 {
                     id: '1',
@@ -508,6 +536,19 @@ const AppData = {
         };
     },
 
+    getDefaultUsers() {
+        return [
+            {
+                id: 'u1',
+                name: 'Administrator',
+                username: 'admin',
+                password: 'admin123',
+                role: 'admin',
+                status: 'active'
+            }
+        ];
+    },
+
     getDefaultStructure() {
         return [
             { id: 's1', role: 'Gembala Sidang', name: 'Pdt. Andreas Simanjuntak', periodeJabatan: '2024-2028', phone: '0812-1111-2222', email: 'andreas@gerejaku.id', notes: '' },
@@ -615,6 +656,41 @@ const AppData = {
     // Get members
     getMembers() {
         return this.getData().members;
+    },
+
+    // Users
+    getUsers() {
+        return this.getData().users || [];
+    },
+
+    addUser(user) {
+        const data = this.getData();
+        user.id = this.generateId();
+        user.role = user.role || 'staff';
+        user.status = user.status || 'active';
+        data.users = data.users || [];
+        data.users.push(user);
+        this.saveData(data);
+        this.addActivity('member', 'User account created', user.username);
+        return user;
+    },
+
+    updateUser(id, updates) {
+        const data = this.getData();
+        data.users = data.users || [];
+        const idx = data.users.findIndex((u) => u.id === id);
+        if (idx !== -1) {
+            data.users[idx] = { ...data.users[idx], ...updates };
+            this.saveData(data);
+            return data.users[idx];
+        }
+        return null;
+    },
+
+    deleteUser(id) {
+        const data = this.getData();
+        data.users = (data.users || []).filter((u) => u.id !== id);
+        this.saveData(data);
     },
 
     // Add member

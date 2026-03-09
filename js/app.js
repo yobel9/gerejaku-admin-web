@@ -16,6 +16,7 @@ const App = {
         attendance: { title: 'Struktur Pengurus', render: () => Attendance.render() },
         finance: { title: 'Keuangan', render: () => Finance.render() },
         inventory: { title: 'Inventaris Gereja', render: () => Inventory.render() },
+        users: { title: 'Manajemen User', render: () => Users.render() },
         'announcements-schedule': { title: 'Jadwal Ibadah', render: () => WorshipSchedule.render() },
         'announcements-events': { title: 'Event', render: () => Events.render() },
         'announcements-church': { title: 'Pengumuman Gereja', render: () => ChurchAnnouncements.render() },
@@ -23,9 +24,12 @@ const App = {
     },
 
     init() {
+        if (!Auth.requireAuth()) return;
         this.sidebarMinimized = localStorage.getItem('sidebarMinimized') === 'true';
         this.setupNavigation();
         this.setupSidebar();
+        this.setupUserActions();
+        this.updateCurrentUserProfile();
         this.loadPage('dashboard');
     },
 
@@ -109,7 +113,43 @@ const App = {
         group.classList.toggle('open');
     },
 
+    setupUserActions() {
+        const logoutBtn = document.getElementById('logoutBtn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', (event) => {
+                event.preventDefault();
+                Auth.logout();
+            });
+        }
+    },
+
+    updateCurrentUserProfile() {
+        const user = Auth.getCurrentUser();
+        if (!user) return;
+        const nameEl = document.getElementById('sidebarUserName');
+        const roleEl = document.getElementById('sidebarUserRole');
+        const avatarEl = document.getElementById('sidebarUserAvatar');
+
+        if (nameEl) nameEl.textContent = user.name || user.username;
+        if (roleEl) roleEl.textContent = user.role === 'admin' ? 'Administrator' : 'Staff';
+        if (avatarEl) avatarEl.textContent = (user.name || user.username || 'U').slice(0, 1).toUpperCase();
+
+        const usersNav = document.querySelector('.nav-item[data-page="users"]')?.closest('li');
+        if (usersNav) {
+            usersNav.style.display = user.role === 'admin' ? '' : 'none';
+        }
+    },
+
     loadPage(pageName) {
+        if (!Auth.isAuthenticated()) {
+            Auth.renderLogin();
+            return;
+        }
+        const user = Auth.getCurrentUser();
+        if (pageName === 'users' && user?.role !== 'admin') {
+            Components.toast('Hanya admin yang bisa akses manajemen user.', 'warning');
+            return;
+        }
         const pageConfig = this.pages[pageName];
         if (!pageConfig) return;
 

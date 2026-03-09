@@ -286,6 +286,33 @@ a:hover {
     color: rgba(255,255,255,0.6);
 }
 
+/* Auth Screen */
+body.auth-screen .sidebar,
+body.auth-screen .header {
+    display: none;
+}
+
+body.auth-screen .main-content {
+    margin-left: 0;
+    width: 100%;
+}
+
+body.auth-screen .content {
+    min-height: 100vh;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.auth-card {
+    width: 100%;
+    max-width: 420px;
+    background: var(--card-bg);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow);
+    padding: 24px;
+}
+
 /* ============================================
    Main Content
    ============================================ */
@@ -986,6 +1013,11 @@ body.sidebar-minimized .sidebar-minimize svg {
     align-items: center;
     justify-content: center;
     transition: var(--transition);
+}
+
+.action-btn:disabled {
+    opacity: 0.45;
+    cursor: not-allowed;
 }
 
 .action-btn svg {
