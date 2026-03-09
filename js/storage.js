@@ -19,22 +19,29 @@ class LocalStorageAdapter {
 // Placeholder for future cloud database integration (Supabase/Firebase/etc.).
 // Keep same synchronous interface for now so app behavior does not change.
 class DatabaseAdapter {
+    constructor(config = {}) {
+        this.config = config;
+    }
+
     getItem(_key) {
-        throw new Error('DatabaseAdapter belum diimplementasikan.');
+        // Temporary safe fallback in dev stage: still read from localStorage
+        // while keeping adapter contract ready for cloud implementation.
+        return localStorage.getItem(_key);
     }
 
     setItem(_key, _value) {
-        throw new Error('DatabaseAdapter belum diimplementasikan.');
+        localStorage.setItem(_key, _value);
     }
 
     removeItem(_key) {
-        throw new Error('DatabaseAdapter belum diimplementasikan.');
+        localStorage.removeItem(_key);
     }
 }
 
 const StorageService = {
     adapter: null,
     modeKey: 'storageMode',
+    configKey: 'databaseConfig',
     defaultMode: 'local',
     availableModes: {
         local: LocalStorageAdapter,
@@ -53,10 +60,50 @@ const StorageService = {
         return true;
     },
 
+    getDatabaseConfig() {
+        const raw = localStorage.getItem(this.configKey);
+        if (!raw) {
+            return {
+                provider: 'supabase',
+                url: '',
+                anonKey: '',
+                table: 'app_storage'
+            };
+        }
+        try {
+            return {
+                provider: 'supabase',
+                table: 'app_storage',
+                ...JSON.parse(raw)
+            };
+        } catch (error) {
+            return {
+                provider: 'supabase',
+                url: '',
+                anonKey: '',
+                table: 'app_storage'
+            };
+        }
+    },
+
+    setDatabaseConfig(config) {
+        const current = this.getDatabaseConfig();
+        const next = {
+            ...current,
+            ...config
+        };
+        localStorage.setItem(this.configKey, JSON.stringify(next));
+        this.adapter = null;
+        return next;
+    },
+
     createAdapter() {
         const mode = this.getMode();
         const AdapterClass = this.availableModes[mode] || LocalStorageAdapter;
         try {
+            if (mode === 'database') {
+                return new AdapterClass(this.getDatabaseConfig());
+            }
             return new AdapterClass();
         } catch (error) {
             // Safety fallback: never block app startup in dev.
