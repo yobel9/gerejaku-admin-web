@@ -42,10 +42,20 @@ const Inventory = {
         content.innerHTML = `
             <div class="page-header">
                 <h1 class="page-title">Inventaris Gereja</h1>
-                <button class="btn btn-primary" onclick="Inventory.showAddModal()">
-                    <svg viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-                    Tambah Barang
-                </button>
+                <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                    <button class="btn btn-secondary" onclick="Inventory.exportExcel()">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M12 16V3M12 16L7 11M12 16L17 11" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M21 21H3" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        Export Excel
+                    </button>
+                    <button class="btn btn-secondary" onclick="Inventory.printInventory()">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M6 9V2H18V9" stroke="currentColor" stroke-width="2"/><path d="M6 18H5A2 2 0 0 1 3 16V11A2 2 0 0 1 5 9H19A2 2 0 0 1 21 11V16A2 2 0 0 1 19 18H18" stroke="currentColor" stroke-width="2"/><rect x="6" y="14" width="12" height="8" stroke="currentColor" stroke-width="2"/></svg>
+                        Print
+                    </button>
+                    <button class="btn btn-primary" onclick="Inventory.showAddModal()">
+                        <svg viewBox="0 0 24 24" fill="none"><path d="M12 5V19M5 12H19" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+                        Tambah Barang
+                    </button>
+                </div>
             </div>
 
             <div class="card">
@@ -451,5 +461,105 @@ const Inventory = {
                 this.render();
             }
         );
+    },
+
+    exportExcel() {
+        if (!this.filteredItems.length) {
+            Components.toast('Tidak ada data inventaris untuk diexport.', 'warning');
+            return;
+        }
+        if (typeof XLSX === 'undefined') {
+            Components.toast('Library Excel belum tersedia. Refresh halaman lalu coba lagi.', 'error');
+            return;
+        }
+
+        const rows = this.filteredItems.map((item, index) => ({
+            No: index + 1,
+            'Nama Barang': item.name || '',
+            Kategori: this.categoryLabels[item.category] || '-',
+            Jumlah: item.quantity || 0,
+            Satuan: item.unit || 'unit',
+            Kondisi: this.conditionLabels[item.condition] || '-',
+            Lokasi: item.location || '-',
+            'Tanggal Perolehan': item.acquiredDate || '',
+            'Nilai (Rp)': item.value || 0,
+            'Ada Foto': item.photo ? 'Ya' : 'Tidak',
+            Catatan: item.notes || ''
+        }));
+
+        const worksheet = XLSX.utils.json_to_sheet(rows);
+        const workbook = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(workbook, worksheet, 'Inventaris');
+        XLSX.writeFile(workbook, `inventaris-gereja-${new Date().toISOString().slice(0, 10)}.xlsx`);
+        Components.toast('Data inventaris berhasil diexport.', 'success');
+    },
+
+    printInventory() {
+        if (!this.filteredItems.length) {
+            Components.toast('Tidak ada data inventaris untuk dicetak.', 'warning');
+            return;
+        }
+
+        const rows = this.filteredItems.map((item, index) => `
+            <tr>
+                <td>${index + 1}</td>
+                <td>${item.name || '-'}</td>
+                <td>${this.categoryLabels[item.category] || '-'}</td>
+                <td>${item.quantity || 0} ${item.unit || 'unit'}</td>
+                <td>${this.conditionLabels[item.condition] || '-'}</td>
+                <td>${item.location || '-'}</td>
+                <td>${item.acquiredDate ? Components.formatDate(item.acquiredDate) : '-'}</td>
+                <td>${item.value ? `Rp ${new Intl.NumberFormat('id-ID').format(item.value)}` : '-'}</td>
+                <td>${item.photo ? 'Ya' : 'Tidak'}</td>
+            </tr>
+        `).join('');
+
+        const printWindow = window.open('', '_blank');
+        if (!printWindow) {
+            Components.toast('Pop-up diblokir browser. Izinkan pop-up untuk mencetak.', 'warning');
+            return;
+        }
+
+        printWindow.document.write(`
+            <!doctype html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <title>Laporan Inventaris Gereja</title>
+                <style>
+                    body { font-family: Arial, sans-serif; margin: 24px; color: #111; }
+                    h1 { margin: 0 0 6px; font-size: 20px; }
+                    p { margin: 0 0 14px; color: #555; font-size: 12px; }
+                    table { width: 100%; border-collapse: collapse; }
+                    th, td { border: 1px solid #d1d5db; padding: 8px; font-size: 12px; text-align: left; vertical-align: top; }
+                    th { background: #f3f4f6; }
+                    @media print { body { margin: 0; } }
+                </style>
+            </head>
+            <body>
+                <h1>Laporan Inventaris Gereja</h1>
+                <p>Tanggal cetak: ${new Date().toLocaleDateString('id-ID')} | Total barang: ${this.filteredItems.length}</p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>No</th>
+                            <th>Nama Barang</th>
+                            <th>Kategori</th>
+                            <th>Jumlah</th>
+                            <th>Kondisi</th>
+                            <th>Lokasi</th>
+                            <th>Tanggal Perolehan</th>
+                            <th>Nilai</th>
+                            <th>Foto</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </body>
+            </html>
+        `);
+        printWindow.document.close();
+        printWindow.focus();
+        setTimeout(() => printWindow.print(), 200);
     }
 };
