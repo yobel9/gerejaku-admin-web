@@ -972,6 +972,7 @@ body.sidebar-minimized .sidebar-minimize svg {
 .table-actions {
     display: flex;
     gap: 8px;
+    flex-wrap: wrap;
 }
 
 .action-btn {

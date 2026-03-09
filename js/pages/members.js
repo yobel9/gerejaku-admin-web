@@ -153,6 +153,7 @@ const Members = {
                             <div style="display: flex; gap: 8px; justify-content: flex-end;">
                                 <button class="btn btn-sm btn-secondary" onclick="Members.viewMember('${member.id}')">Lihat</button>
                                 <button class="btn btn-sm btn-primary" onclick="Members.editMember('${member.id}')">Edit</button>
+                                <button class="btn btn-sm btn-danger" onclick="Members.deleteMember('${member.id}')">Hapus</button>
                             </div>
                         </div>
                     </td>
