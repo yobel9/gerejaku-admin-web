@@ -3,11 +3,11 @@
 // ============================================
 
 const AppData = {
-    // Initialize data from localStorage or use defaults
+    // Initialize data from storage adapter or use defaults
     init() {
-        if (!localStorage.getItem('churchAdminData')) {
+        if (!StorageService.has('churchAdminData')) {
             const defaultData = this.getDefaultData();
-            localStorage.setItem('churchAdminData', JSON.stringify(defaultData));
+            StorageService.setJSON('churchAdminData', defaultData);
         }
         const data = this.getData();
 
@@ -157,15 +157,14 @@ const AppData = {
         return data;
     },
 
-    // Get all data from localStorage
+    // Get all data from storage adapter
     getData() {
-        const data = localStorage.getItem('churchAdminData');
-        return data ? JSON.parse(data) : this.getDefaultData();
+        return StorageService.getJSON('churchAdminData', this.getDefaultData());
     },
 
-    // Save data to localStorage
+    // Save data to storage adapter
     saveData(data) {
-        localStorage.setItem('churchAdminData', JSON.stringify(data));
+        StorageService.setJSON('churchAdminData', data);
     },
 
     // Get default/sample data
