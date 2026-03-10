@@ -44,6 +44,7 @@ const StorageService = {
     configKey: 'databaseConfig',
     autoSyncKey: 'storageAutoSync',
     autoPullKey: 'storageAutoPull',
+    autoPullIntervalKey: 'storageAutoPullIntervalSec',
     syncMetaKey: 'storageSyncMeta',
     defaultMode: 'local',
     syncTimer: null,
@@ -118,6 +119,20 @@ const StorageService = {
         localStorage.setItem(this.autoPullKey, enabled ? 'true' : 'false');
     },
 
+    getAutoPullIntervalSec() {
+        const raw = localStorage.getItem(this.autoPullIntervalKey);
+        const num = parseInt(raw || '45', 10);
+        if (Number.isNaN(num) || num < 10) return 45;
+        return num;
+    },
+
+    setAutoPullIntervalSec(seconds) {
+        const num = parseInt(String(seconds), 10);
+        const safeValue = Number.isNaN(num) || num < 10 ? 45 : num;
+        localStorage.setItem(this.autoPullIntervalKey, String(safeValue));
+        return safeValue;
+    },
+
     getSyncMeta() {
         const raw = localStorage.getItem(this.syncMetaKey);
         const base = {
@@ -125,6 +140,7 @@ const StorageService = {
             lastLocalChangeAt: '',
             lastPushAt: '',
             lastPullAt: '',
+            lastRemoteUpdatedAt: '',
             lastError: ''
         };
         if (!raw) return base;
@@ -159,10 +175,11 @@ const StorageService = {
         });
     },
 
-    markPullSuccess() {
+    markPullSuccess(remoteUpdatedAt = '') {
         this.setSyncMeta({
             dirty: false,
             lastPullAt: new Date().toISOString(),
+            lastRemoteUpdatedAt: remoteUpdatedAt || this.getSyncMeta().lastRemoteUpdatedAt || '',
             lastError: ''
         });
     },
@@ -289,10 +306,16 @@ const StorageService = {
         if (!Array.isArray(rows) || !rows[0] || !rows[0].payload) {
             throw new Error('Data tidak ditemukan di database.');
         }
+        const row = rows[0];
+        const remoteUpdatedAt = row.updated_at || '';
+        const lastRemoteUpdatedAt = this.getSyncMeta().lastRemoteUpdatedAt || '';
+        const changed = !(remoteUpdatedAt && lastRemoteUpdatedAt && remoteUpdatedAt === lastRemoteUpdatedAt);
 
-        this.setJSON(storageKey, rows[0].payload);
-        this.markPullSuccess();
-        return rows[0];
+        if (changed) {
+            this.setJSON(storageKey, row.payload);
+        }
+        this.markPullSuccess(remoteUpdatedAt);
+        return { row, changed };
     },
 
     queueAutoPush(storageKey = 'churchAdminData', delayMs = 1200) {
@@ -329,8 +352,8 @@ const StorageService = {
             return { pulled: false, reason: 'local_dirty' };
         }
         try {
-            await this.pullDatabaseDataToLocal(storageKey, { force: false });
-            return { pulled: true, reason: 'ok' };
+            const result = await this.pullDatabaseDataToLocal(storageKey, { force: false });
+            return { pulled: true, changed: result.changed, reason: 'ok' };
         } catch (error) {
             this.markSyncError(error.message);
             console.warn('[StorageService] Auto pull skipped:', error.message);

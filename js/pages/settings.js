@@ -9,6 +9,7 @@ const Settings = {
         const dbConfig = StorageService.getDatabaseConfig();
         const autoSyncEnabled = StorageService.isAutoSyncEnabled();
         const autoPullEnabled = StorageService.isAutoPullEnabled();
+        const autoPullIntervalSec = StorageService.getAutoPullIntervalSec();
         const syncMeta = StorageService.getSyncMeta();
         const formatSyncTime = (iso) => {
             if (!iso) return '-';
@@ -66,6 +67,15 @@ const Settings = {
                             <select id="autoPullSelect" class="form-select">
                                 <option value="false" ${!autoPullEnabled ? 'selected' : ''}>Off</option>
                                 <option value="true" ${autoPullEnabled ? 'selected' : ''}>On</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Interval Auto Pull (detik)</label>
+                            <select id="autoPullIntervalSelect" class="form-select">
+                                <option value="15" ${autoPullIntervalSec === 15 ? 'selected' : ''}>15 detik</option>
+                                <option value="30" ${autoPullIntervalSec === 30 ? 'selected' : ''}>30 detik</option>
+                                <option value="45" ${autoPullIntervalSec === 45 ? 'selected' : ''}>45 detik</option>
+                                <option value="60" ${autoPullIntervalSec === 60 ? 'selected' : ''}>60 detik</option>
                             </select>
                         </div>
                     </div>
@@ -149,6 +159,7 @@ const Settings = {
         const table = (document.getElementById('dbTableInput')?.value || '').trim() || 'app_storage';
         const autoSync = document.getElementById('autoSyncSelect')?.value === 'true';
         const autoPull = document.getElementById('autoPullSelect')?.value === 'true';
+        const autoPullIntervalSec = parseInt(document.getElementById('autoPullIntervalSelect')?.value || '45', 10);
 
         StorageService.setDatabaseConfig({
             provider: 'supabase',
@@ -159,6 +170,10 @@ const Settings = {
         StorageService.setMode(mode);
         StorageService.setAutoSyncEnabled(autoSync);
         StorageService.setAutoPullEnabled(autoPull);
+        StorageService.setAutoPullIntervalSec(autoPullIntervalSec);
+        if (window.App && typeof window.App.startBackgroundSync === 'function') {
+            window.App.startBackgroundSync();
+        }
 
         Components.toast('Pengaturan storage disimpan.', 'success');
         this.render();
@@ -206,10 +221,15 @@ const Settings = {
 
     async forcePullFromDatabase(force = true) {
         try {
-            await StorageService.pullDatabaseDataToLocal('churchAdminData', { force });
-            AppData.init();
-            Components.toast('Pull data dari database berhasil. Halaman akan dimuat ulang.', 'success');
-            setTimeout(() => window.location.reload(), 500);
+            const result = await StorageService.pullDatabaseDataToLocal('churchAdminData', { force });
+            if (result.changed) {
+                AppData.init();
+                Components.toast('Pull data dari database berhasil. Halaman akan dimuat ulang.', 'success');
+                setTimeout(() => window.location.reload(), 500);
+                return;
+            }
+            Components.toast('Tidak ada perubahan baru di database.', 'info');
+            this.render();
         } catch (error) {
             Components.toast(`Pull gagal: ${error.message}`, 'error');
             this.render();

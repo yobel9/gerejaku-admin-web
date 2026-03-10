@@ -5,6 +5,8 @@
 const App = {
     currentPage: 'dashboard',
     sidebarMinimized: false,
+    backgroundPullTimer: null,
+    backgroundPullRunning: false,
     pages: {
         dashboard: { title: 'Dashboard', render: () => Dashboard.render() },
         members: { title: 'Data Jemaat', render: () => Members.render() },
@@ -34,7 +36,7 @@ const App = {
 
         // Optional startup sync from database mode (safe no-op in local mode).
         const startupSync = await StorageService.autoPullOnStartup('churchAdminData');
-        if (startupSync.pulled) {
+        if (startupSync.pulled && startupSync.changed) {
             AppData.init();
             Components.toast('Data terbaru berhasil dimuat dari database.', 'success');
         } else if (startupSync.reason === 'local_dirty') {
@@ -42,6 +44,7 @@ const App = {
         }
 
         this.loadPage('dashboard');
+        this.startBackgroundSync();
     },
 
     setupNavigation() {
@@ -129,9 +132,44 @@ const App = {
         if (logoutBtn) {
             logoutBtn.addEventListener('click', (event) => {
                 event.preventDefault();
+                this.stopBackgroundSync();
                 Auth.logout();
             });
         }
+    },
+
+    startBackgroundSync() {
+        this.stopBackgroundSync();
+
+        const shouldRun = StorageService.getMode() === 'database'
+            && StorageService.isAutoPullEnabled()
+            && StorageService.isDatabaseConfigReady();
+        if (!shouldRun) return;
+
+        const intervalMs = StorageService.getAutoPullIntervalSec() * 1000;
+        this.backgroundPullTimer = setInterval(async () => {
+            if (this.backgroundPullRunning || !Auth.isAuthenticated()) return;
+
+            this.backgroundPullRunning = true;
+            try {
+                const result = await StorageService.autoPullOnStartup('churchAdminData');
+                if (result.pulled && result.changed) {
+                    AppData.init();
+                    this.loadPage(this.currentPage);
+                    Components.toast('Data baru tersinkron dari database.', 'info');
+                }
+            } finally {
+                this.backgroundPullRunning = false;
+            }
+        }, intervalMs);
+    },
+
+    stopBackgroundSync() {
+        if (this.backgroundPullTimer) {
+            clearInterval(this.backgroundPullTimer);
+            this.backgroundPullTimer = null;
+        }
+        this.backgroundPullRunning = false;
     },
 
     updateCurrentUserProfile() {
