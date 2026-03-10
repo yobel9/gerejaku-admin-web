@@ -16,7 +16,7 @@ const Commissions = {
         women: 'Komisi Wanita'
     },
 
-    render(commission = 'all') {
+    async render(commission = 'all') {
         if (this.currentCommission !== commission) {
             this.currentPage = 1;
         }
@@ -122,7 +122,7 @@ const Commissions = {
 
         const startIndex = (this.currentPage - 1) * this.itemsPerPage;
         const pageMembers = this.filteredMembers.slice(startIndex, startIndex + this.itemsPerPage);
-        const canDelete = Auth.canDelete();
+        const canDelete = Auth.canDeleteSync();
 
         return pageMembers.map((member) => `
             <tr>

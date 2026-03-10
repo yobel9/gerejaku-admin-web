@@ -33,7 +33,7 @@ const ChurchAnnouncements = {
         published: 'badge-success'
     },
 
-    render() {
+    async render() {
         this.announcements = AppData.getChurchAnnouncements();
         this.applyFilters();
 

@@ -13,7 +13,7 @@ const Events = {
         category: ''
     },
 
-    render() {
+    async render() {
         this.events = AppData.getEvents();
         this.applyFilters();
 

@@ -27,30 +27,14 @@ const App = {
     },
 
     async init() {
-        if (!Auth.requireAuth()) return;
+        if (!await Auth.requireAuth()) return;
         this.sidebarMinimized = localStorage.getItem('sidebarMinimized') === 'true';
         this.setupNavigation();
         this.setupSidebar();
         this.setupUserActions();
-        this.updateCurrentUserProfile();
-
-        // Pull shared storage settings from DB so other devices can follow admin config.
-        const sharedSettings = await StorageService.autoApplySharedStorageSettings();
-        if (sharedSettings.applied) {
-            this.applySidebarState();
-        }
-
-        // Optional startup sync from database mode (safe no-op in local mode).
-        const startupSync = await StorageService.autoPullOnStartup('churchAdminData');
-        if (startupSync.pulled && startupSync.changed) {
-            AppData.init();
-            Components.toast('Data terbaru berhasil dimuat dari database.', 'success');
-        } else if (startupSync.reason === 'local_dirty') {
-            Components.toast('Auto pull dilewati karena ada perubahan lokal yang belum tersinkron.', 'warning');
-        }
-
-        this.loadPage('dashboard');
-        this.startBackgroundSync();
+        await this.updateCurrentUserProfile();
+        
+        await this.loadPage('dashboard');
     },
 
     setupNavigation() {
@@ -138,48 +122,13 @@ const App = {
         if (logoutBtn) {
             logoutBtn.addEventListener('click', (event) => {
                 event.preventDefault();
-                this.stopBackgroundSync();
                 Auth.logout();
             });
         }
     },
 
-    startBackgroundSync() {
-        this.stopBackgroundSync();
-
-        const shouldRun = StorageService.getMode() === 'database'
-            && StorageService.isAutoPullEnabled()
-            && StorageService.isDatabaseConfigReady();
-        if (!shouldRun) return;
-
-        const intervalMs = StorageService.getAutoPullIntervalSec() * 1000;
-        this.backgroundPullTimer = setInterval(async () => {
-            if (this.backgroundPullRunning || !Auth.isAuthenticated()) return;
-
-            this.backgroundPullRunning = true;
-            try {
-                const result = await StorageService.autoPullOnStartup('churchAdminData');
-                if (result.pulled && result.changed) {
-                    AppData.init();
-                    this.loadPage(this.currentPage);
-                    Components.toast('Data baru tersinkron dari database.', 'info');
-                }
-            } finally {
-                this.backgroundPullRunning = false;
-            }
-        }, intervalMs);
-    },
-
-    stopBackgroundSync() {
-        if (this.backgroundPullTimer) {
-            clearInterval(this.backgroundPullTimer);
-            this.backgroundPullTimer = null;
-        }
-        this.backgroundPullRunning = false;
-    },
-
-    updateCurrentUserProfile() {
-        const user = Auth.getCurrentUser();
+    async updateCurrentUserProfile() {
+        const user = await Auth.getCurrentUser();
         if (!user) return;
         const nameEl = document.getElementById('sidebarUserName');
         const roleEl = document.getElementById('sidebarUserRole');
@@ -195,12 +144,12 @@ const App = {
         }
     },
 
-    loadPage(pageName) {
-        if (!Auth.isAuthenticated()) {
+    async loadPage(pageName) {
+        if (!(await Auth.isAuthenticated())) {
             Auth.renderLogin();
             return;
         }
-        const user = Auth.getCurrentUser();
+        const user = await Auth.getCurrentUser();
         if (pageName === 'users' && user?.role !== 'admin') {
             Components.toast('Hanya admin yang bisa akses manajemen user.', 'warning');
             return;
@@ -248,8 +197,8 @@ const App = {
         this.loadPage(pageName);
     },
 
-    exportBackup() {
-        if (!Auth.isAdmin()) {
+    async exportBackup() {
+        if (!(await Auth.isAdmin())) {
             Components.toast('Hanya admin yang dapat backup data.', 'warning');
             return;
         }
@@ -273,8 +222,8 @@ const App = {
         Components.toast('Backup data berhasil diunduh.', 'success');
     },
 
-    triggerRestore() {
-        if (!Auth.isAdmin()) {
+    async triggerRestore() {
+        if (!(await Auth.isAdmin())) {
             Components.toast('Hanya admin yang dapat restore data.', 'warning');
             return;
         }
@@ -284,8 +233,8 @@ const App = {
         input.click();
     },
 
-    handleRestoreFile(event) {
-        if (!Auth.isAdmin()) {
+    async handleRestoreFile(event) {
+        if (!(await Auth.isAdmin())) {
             Components.toast('Hanya admin yang dapat restore data.', 'warning');
             return;
         }

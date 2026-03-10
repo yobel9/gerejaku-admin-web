@@ -23,11 +23,12 @@ const Members = {
         gender: ''
     },
 
-    render() {
+    async render() {
         this.members = AppData.getMembers();
         this.applyFilters();
         
         const isMobile = window.innerWidth <= 900;
+        const currentUser = await Auth.getCurrentUser();
         
         const content = document.getElementById('content');
         
@@ -125,7 +126,7 @@ const Members = {
 
         // Check if mobile
         const isMobile = window.innerWidth <= 900;
-        const canDelete = Auth.canDelete();
+        const canDelete = Auth.canDeleteSync();
         
         if (isMobile) {
             // Card view for mobile

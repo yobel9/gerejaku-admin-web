@@ -38,7 +38,7 @@ const Finance = {
         other_expense: 'Lainnya'
     },
 
-    render() {
+    async render() {
         this.incomes = AppData.getDonations();
         this.expenses = AppData.getExpenses();
         this.buildTransactions();
@@ -238,7 +238,7 @@ const Finance = {
         const pageTransactions = this.filteredTransactions.slice(startIndex, startIndex + this.itemsPerPage);
 
         const isMobile = window.innerWidth <= 900;
-        const canDelete = Auth.canDelete();
+        const canDelete = Auth.canDeleteSync();
 
         if (isMobile) {
             return pageTransactions.map((tx) => `
@@ -712,7 +712,7 @@ const Finance = {
     },
 
     deleteTransaction(id) {
-        if (!Auth.canDelete()) {
+        if (!Auth.canDeleteSync()) {
             Components.toast('Hanya admin yang dapat menghapus data.', 'warning');
             return;
         }

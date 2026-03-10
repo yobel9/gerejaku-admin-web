@@ -8,10 +8,10 @@ const Attendance = {
         search: ''
     },
 
-    render() {
+    async render() {
         this.structure = AppData.getStructure();
         const filtered = this.getFiltered();
-        const canDelete = Auth.canDelete();
+        const canDelete = await Auth.canDelete();
 
         const content = document.getElementById('content');
         content.innerHTML = `
@@ -241,7 +241,7 @@ const Attendance = {
     },
 
     deleteEntry(id) {
-        if (!Auth.canDelete()) {
+        if (!Auth.canDeleteSync()) {
             Components.toast('Hanya admin yang dapat menghapus data.', 'warning');
             return;
         }

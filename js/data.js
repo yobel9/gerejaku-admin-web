@@ -3,159 +3,47 @@
 // ============================================
 
 const AppData = {
+    _data: null,
+
     // Initialize data from storage adapter or use defaults
     async init() {
+        console.log('AppData.init() called');
         try {
             const hasData = await StorageService.has('churchAdminData');
+            console.log('Has data:', hasData);
             if (!hasData) {
                 const defaultData = this.getDefaultData();
                 await StorageService.setJSON('churchAdminData', defaultData);
+                this._data = defaultData;
+                console.log('Default data saved');
             }
-            const data = await this.getData();
+            const data = await StorageService.getJSON('churchAdminData', this.getDefaultData());
+            this._data = data;
+            console.log('Data loaded:', data);
 
-            // Schema migration for older saved data
+            // Schema migration for older saved data (hanya tambah field jika belum ada, tidak hapus data)
             if (!Array.isArray(data.expenses)) {
                 data.expenses = [];
-                await this.saveData(data);
             }
             if (!Array.isArray(data.users)) {
                 data.users = this.getDefaultUsers();
-                await this.saveData(data);
             }
-            if (Array.isArray(data.users)) {
-                let hasUserUpdate = false;
-                data.users = data.users.map((item) => {
-                    if (!item || typeof item !== 'object') return item;
-                    const nextItem = { ...item };
-                    if (nextItem.role === undefined) {
-                        nextItem.role = 'staff';
-                        hasUserUpdate = true;
-                    }
-                    if (nextItem.status === undefined) {
-                        nextItem.status = 'active';
-                        hasUserUpdate = true;
-                    }
-                    if (nextItem.name === undefined) {
-                        nextItem.name = nextItem.username || 'User';
-                        hasUserUpdate = true;
-                    }
-                    return nextItem;
-                });
-                if (hasUserUpdate) {
-                    await this.saveData(data);
-                }
-            }
+            // Jangan map users - biarkan data asli tetap
             if (!Array.isArray(data.structure)) {
                 data.structure = this.getDefaultStructure();
-                await this.saveData(data);
-            }
-            if (Array.isArray(data.structure)) {
-                let hasStructureUpdate = false;
-                data.structure = data.structure.map((item) => {
-                    if (item && typeof item === 'object' && item.periodeJabatan === undefined) {
-                        hasStructureUpdate = true;
-                        return { ...item, periodeJabatan: '' };
-                    }
-                    return item;
-                });
-                if (hasStructureUpdate) {
-                    await this.saveData(data);
-                }
             }
             if (!Array.isArray(data.worshipSchedules)) {
                 data.worshipSchedules = this.getDefaultWorshipSchedules();
-                await this.saveData(data);
-            }
-            if (Array.isArray(data.worshipSchedules)) {
-                let hasWorshipUpdate = false;
-                data.worshipSchedules = data.worshipSchedules.map((item) => {
-                    if (item && typeof item === 'object' && item.serviceDetails === undefined) {
-                        hasWorshipUpdate = true;
-                        return { ...item, serviceDetails: '' };
-                    }
-                    return item;
-                });
-                if (hasWorshipUpdate) {
-                    await this.saveData(data);
-                }
-            }
-            if (Array.isArray(data.events)) {
-                let hasEventUpdate = false;
-                data.events = data.events.map((item) => {
-                    if (item && typeof item === 'object' && item.priority === undefined) {
-                        hasEventUpdate = true;
-                        return { ...item, priority: 'normal' };
-                    }
-                    return item;
-                });
-                if (hasEventUpdate) {
-                    await this.saveData(data);
-                }
             }
             if (!Array.isArray(data.churchAnnouncements)) {
                 data.churchAnnouncements = this.getDefaultChurchAnnouncements();
-                await this.saveData(data);
-            }
-            if (Array.isArray(data.churchAnnouncements)) {
-                let hasAnnouncementUpdate = false;
-                data.churchAnnouncements = data.churchAnnouncements.map((item) => {
-                    if (!item || typeof item !== 'object') return item;
-
-                    let nextItem = item;
-                    if (item.status === undefined) {
-                        hasAnnouncementUpdate = true;
-                        nextItem = { ...nextItem, status: 'draft' };
-                    }
-                    if (nextItem.type === 'service') {
-                        hasAnnouncementUpdate = true;
-                        nextItem = { ...nextItem, type: 'general' };
-                    }
-                    if (nextItem.type === 'youth' || nextItem.type === 'family') {
-                        hasAnnouncementUpdate = true;
-                        nextItem = { ...nextItem, type: 'other' };
-                    }
-                    return nextItem;
-                });
-                if (hasAnnouncementUpdate) {
-                    await this.saveData(data);
-                }
             }
             if (!Array.isArray(data.inventory)) {
                 data.inventory = this.getDefaultInventory();
-                await this.saveData(data);
-            }
-            if (Array.isArray(data.inventory)) {
-                let hasInventoryUpdate = false;
-                data.inventory = data.inventory.map((item) => {
-                    if (!item || typeof item !== 'object') return item;
-                    const nextItem = { ...item };
-                    if (nextItem.unit === undefined) {
-                        nextItem.unit = 'unit';
-                        hasInventoryUpdate = true;
-                    }
-                    if (nextItem.condition === undefined) {
-                        nextItem.condition = 'good';
-                        hasInventoryUpdate = true;
-                    }
-                    if (nextItem.quantity === undefined) {
-                        nextItem.quantity = 0;
-                        hasInventoryUpdate = true;
-                    }
-                    if (nextItem.category === undefined) {
-                        nextItem.category = 'other';
-                        hasInventoryUpdate = true;
-                    }
-                    if (nextItem.photo === undefined) {
-                        nextItem.photo = '';
-                        hasInventoryUpdate = true;
-                    }
-                    return nextItem;
-                });
-                if (hasInventoryUpdate) {
-                    await this.saveData(data);
-                }
             }
 
+            // Update in-memory cache with migrated data
+            this._data = data;
             return data;
         } catch (error) {
             console.error('Error initializing data:', error);
@@ -163,19 +51,15 @@ const AppData = {
         }
     },
 
-    // Get all data from storage adapter
-    async getData() {
-        try {
-            return await StorageService.getJSON('churchAdminData', this.getDefaultData());
-        } catch (error) {
-            console.error('Error getting data:', error);
-            return this.getDefaultData();
-        }
+    // Get all data from in-memory cache (synchronous)
+    getData() {
+        return this._data || this.getDefaultData();
     },
 
-    // Save data to storage adapter
+    // Save data to storage adapter and update in-memory cache
     async saveData(data) {
         try {
+            this._data = data; // update cache immediately
             StorageService.markLocalChange();
             await StorageService.setJSON('churchAdminData', data);
             StorageService.queueAutoPush('churchAdminData');
@@ -672,7 +556,8 @@ const AppData = {
 
     getCurrentActorName() {
         try {
-            const session = StorageService.getJSON('churchAdminSession', null);
+            const raw = localStorage.getItem('churchAdminSession');
+            const session = raw ? JSON.parse(raw) : null;
             if (!session?.userId) return 'System';
             const user = (this.getData().users || []).find((item) => item.id === session.userId);
             if (!user) return 'System';
@@ -694,7 +579,10 @@ const AppData = {
 
     // Users
     getUsers() {
-        return this.getData().users || [];
+        const data = this.getData();
+        console.log('getUsers() called, data:', data);
+        console.log('getUsers() users:', data.users);
+        return data.users || [];
     },
 
     addUser(user) {

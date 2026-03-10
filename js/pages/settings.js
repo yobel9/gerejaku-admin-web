@@ -3,8 +3,8 @@
 // ============================================
 
 const Settings = {
-    render() {
-        const isAdmin = Auth.isAdmin();
+    async render() {
+        const isAdmin = await Auth.isAdmin();
         const storageMode = StorageService.getMode();
         const dbConfig = StorageService.getDatabaseConfig();
         const autoSyncEnabled = StorageService.isAutoSyncEnabled();
@@ -154,7 +154,7 @@ const Settings = {
     },
 
     async saveStorageSettings() {
-        if (!Auth.isAdmin()) {
+        if (!Auth.isAdminSync()) {
             Components.toast('Hanya admin yang dapat mengubah pengaturan storage.', 'warning');
             return;
         }
@@ -196,7 +196,7 @@ const Settings = {
     },
 
     async pullSharedStorageSettings() {
-        if (!Auth.isAdmin()) {
+        if (!Auth.isAdminSync()) {
             Components.toast('Hanya admin yang dapat menarik pengaturan shared.', 'warning');
             return;
         }

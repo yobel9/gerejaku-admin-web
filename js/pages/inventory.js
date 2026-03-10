@@ -33,7 +33,7 @@ const Inventory = {
         damaged: 'badge-danger'
     },
 
-    render() {
+    async render() {
         this.items = AppData.getInventoryItems();
         this.applyFilters();
 
@@ -123,7 +123,7 @@ const Inventory = {
     },
 
     renderRows(isMobile) {
-        const canDelete = Auth.canDelete();
+        const canDelete = Auth.canDeleteSync();
         if (!this.filteredItems.length) {
             return `
                 <tr>
@@ -452,7 +452,7 @@ const Inventory = {
     },
 
     deleteItem(id) {
-        if (!Auth.canDelete()) {
+        if (!Auth.canDeleteSync()) {
             Components.toast('Hanya admin yang dapat menghapus data.', 'warning');
             return;
         }

@@ -32,7 +32,7 @@ const WorshipSchedule = {
         special: 'badge-success'
     },
 
-    render() {
+    async render() {
         this.schedules = AppData.getWorshipSchedules();
         this.applyFilters();
 

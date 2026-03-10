@@ -24,7 +24,7 @@ const Users = {
         inactive: 'badge-danger'
     },
 
-    render() {
+    async render() {
         this.users = AppData.getUsers();
         this.applyFilters();
 
@@ -90,7 +90,7 @@ const Users = {
             `;
         }
 
-        const currentUser = Auth.getCurrentUser();
+        const currentUser = Auth.getCurrentUserSync();
         return this.filteredUsers.map((item) => `
             <tr>
                 <td><strong>${item.name || '-'}</strong></td>
@@ -235,11 +235,11 @@ const Users = {
     },
 
     deleteUser(id) {
-        if (!Auth.canDelete()) {
+        if (!Auth.canDeleteSync()) {
             Components.toast('Hanya admin yang dapat menghapus data.', 'warning');
             return;
         }
-        const currentUser = Auth.getCurrentUser();
+        const currentUser = Auth.getCurrentUserSync();
         if (currentUser && currentUser.id === id) {
             Components.toast('User yang sedang login tidak bisa dihapus.', 'warning');
             return;
