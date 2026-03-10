@@ -450,6 +450,28 @@ body.sidebar-minimized .sidebar-minimize svg {
     gap: 16px;
 }
 
+.header-fullscreen {
+    background: none;
+    border: none;
+    color: var(--text-primary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: var(--radius-md);
+    transition: var(--transition);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.header-fullscreen svg {
+    width: 24px;
+    height: 24px;
+}
+
+.header-fullscreen:hover {
+    background: var(--hover);
+}
+
 /* Search Box */
 .search-box {
     position: relative;

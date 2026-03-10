@@ -61,7 +61,7 @@ const App = {
         const sidebar = document.getElementById('sidebar');
         const sidebarClose = document.getElementById('sidebarClose');
         const sidebarMinimize = document.getElementById('sidebarMinimize');
-        const sidebarFullscreen = document.getElementById('sidebarFullscreen');
+        const headerFullscreen = document.getElementById('headerFullscreen');
 
         this.applySidebarState();
 
@@ -81,9 +81,9 @@ const App = {
             });
         }
 
-        // Fullscreen toggle
-        if (sidebarFullscreen) {
-            sidebarFullscreen.addEventListener('click', () => {
+        // Fullscreen toggle (in header)
+        if (headerFullscreen) {
+            headerFullscreen.addEventListener('click', () => {
                 this.toggleFullscreen();
             });
         }
@@ -115,7 +115,7 @@ const App = {
 
     // Toggle fullscreen mode
     toggleFullscreen() {
-        const fullscreenBtn = document.getElementById('sidebarFullscreen');
+        const fullscreenBtn = document.getElementById('headerFullscreen');
         
         if (!document.fullscreenElement) {
             // Enter fullscreen
