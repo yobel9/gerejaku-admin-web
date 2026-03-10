@@ -165,6 +165,7 @@ const AppData = {
     // Save data to storage adapter
     saveData(data) {
         StorageService.setJSON('churchAdminData', data);
+        StorageService.queueAutoPush('churchAdminData');
     },
 
     // Get default/sample data

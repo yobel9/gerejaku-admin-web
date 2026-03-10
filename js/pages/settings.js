@@ -7,6 +7,8 @@ const Settings = {
         const isAdmin = Auth.isAdmin();
         const storageMode = StorageService.getMode();
         const dbConfig = StorageService.getDatabaseConfig();
+        const autoSyncEnabled = StorageService.isAutoSyncEnabled();
+        const autoPullEnabled = StorageService.isAutoPullEnabled();
 
         const content = document.getElementById('content');
         content.innerHTML = `
@@ -44,8 +46,24 @@ const Settings = {
                         <label class="form-label">Anon Key (placeholder)</label>
                         <input id="dbAnonKeyInput" type="password" class="form-input" value="${dbConfig.anonKey || ''}" placeholder="eyJ...">
                     </div>
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label class="form-label">Auto Push saat Data Berubah</label>
+                            <select id="autoSyncSelect" class="form-select">
+                                <option value="false" ${!autoSyncEnabled ? 'selected' : ''}>Off</option>
+                                <option value="true" ${autoSyncEnabled ? 'selected' : ''}>On</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label class="form-label">Auto Pull saat Startup</label>
+                            <select id="autoPullSelect" class="form-select">
+                                <option value="false" ${!autoPullEnabled ? 'selected' : ''}>Off</option>
+                                <option value="true" ${autoPullEnabled ? 'selected' : ''}>On</option>
+                            </select>
+                        </div>
+                    </div>
                     <p style="color: var(--text-secondary); margin-bottom: 14px;">
-                        Catatan: mode Database masih tahap persiapan. Saat ini tetap menggunakan penyimpanan lokal agar aman selama development.
+                        Catatan: mode Database masih tahap transisi. Simpan backup sebelum mengaktifkan auto sync.
                     </p>
                     <button class="btn btn-primary" onclick="Settings.saveStorageSettings()">Simpan Pengaturan Storage</button>
                 ` : `
@@ -115,6 +133,8 @@ const Settings = {
         const url = (document.getElementById('dbUrlInput')?.value || '').trim();
         const anonKey = (document.getElementById('dbAnonKeyInput')?.value || '').trim();
         const table = (document.getElementById('dbTableInput')?.value || '').trim() || 'app_storage';
+        const autoSync = document.getElementById('autoSyncSelect')?.value === 'true';
+        const autoPull = document.getElementById('autoPullSelect')?.value === 'true';
 
         StorageService.setDatabaseConfig({
             provider: 'supabase',
@@ -123,6 +143,8 @@ const Settings = {
             table
         });
         StorageService.setMode(mode);
+        StorageService.setAutoSyncEnabled(autoSync);
+        StorageService.setAutoPullEnabled(autoPull);
 
         Components.toast('Pengaturan storage disimpan.', 'success');
         this.render();

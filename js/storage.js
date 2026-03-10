@@ -42,7 +42,11 @@ const StorageService = {
     adapter: null,
     modeKey: 'storageMode',
     configKey: 'databaseConfig',
+    autoSyncKey: 'storageAutoSync',
+    autoPullKey: 'storageAutoPull',
     defaultMode: 'local',
+    syncTimer: null,
+    syncInProgress: false,
     availableModes: {
         local: LocalStorageAdapter,
         database: DatabaseAdapter
@@ -95,6 +99,22 @@ const StorageService = {
         localStorage.setItem(this.configKey, JSON.stringify(next));
         this.adapter = null;
         return next;
+    },
+
+    isAutoSyncEnabled() {
+        return localStorage.getItem(this.autoSyncKey) === 'true';
+    },
+
+    setAutoSyncEnabled(enabled) {
+        localStorage.setItem(this.autoSyncKey, enabled ? 'true' : 'false');
+    },
+
+    isAutoPullEnabled() {
+        return localStorage.getItem(this.autoPullKey) === 'true';
+    },
+
+    setAutoPullEnabled(enabled) {
+        localStorage.setItem(this.autoPullKey, enabled ? 'true' : 'false');
     },
 
     createAdapter() {
@@ -209,6 +229,44 @@ const StorageService = {
 
         this.setJSON(storageKey, rows[0].payload);
         return rows[0];
+    },
+
+    queueAutoPush(storageKey = 'churchAdminData', delayMs = 1200) {
+        if (this.getMode() !== 'database' || !this.isAutoSyncEnabled() || !this.isDatabaseConfigReady()) {
+            return;
+        }
+        if (this.syncTimer) {
+            clearTimeout(this.syncTimer);
+        }
+        this.syncTimer = setTimeout(() => {
+            this.syncTimer = null;
+            this.performAutoPush(storageKey);
+        }, delayMs);
+    },
+
+    async performAutoPush(storageKey = 'churchAdminData') {
+        if (this.syncInProgress) return;
+        this.syncInProgress = true;
+        try {
+            await this.pushLocalDataToDatabase(storageKey);
+        } catch (error) {
+            console.warn('[StorageService] Auto push failed:', error.message);
+        } finally {
+            this.syncInProgress = false;
+        }
+    },
+
+    async autoPullOnStartup(storageKey = 'churchAdminData') {
+        if (this.getMode() !== 'database' || !this.isAutoPullEnabled() || !this.isDatabaseConfigReady()) {
+            return false;
+        }
+        try {
+            await this.pullDatabaseDataToLocal(storageKey);
+            return true;
+        } catch (error) {
+            console.warn('[StorageService] Auto pull skipped:', error.message);
+            return false;
+        }
     },
 
     setAdapter(adapter) {

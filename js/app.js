@@ -24,13 +24,21 @@ const App = {
         events: { title: 'Event', render: () => Events.render() }
     },
 
-    init() {
+    async init() {
         if (!Auth.requireAuth()) return;
         this.sidebarMinimized = localStorage.getItem('sidebarMinimized') === 'true';
         this.setupNavigation();
         this.setupSidebar();
         this.setupUserActions();
         this.updateCurrentUserProfile();
+
+        // Optional startup sync from database mode (safe no-op in local mode).
+        const pulled = await StorageService.autoPullOnStartup('churchAdminData');
+        if (pulled) {
+            AppData.init();
+            Components.toast('Data terbaru berhasil dimuat dari database.', 'success');
+        }
+
         this.loadPage('dashboard');
     },
 
@@ -279,13 +287,12 @@ const App = {
 
 // Initialize app when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
-    try {
-        App.init();
+    // Make App globally accessible for onclick handlers
+    window.App = App;
+
+    Promise.resolve(App.init()).then(() => {
         console.log('Church Admin App initialized successfully');
-        
-        // Make App globally accessible for onclick handlers
-        window.App = App;
-    } catch (error) {
+    }).catch((error) => {
         console.error('Error initializing app:', error);
         document.getElementById('content').innerHTML = `
             <div class="empty-state">
@@ -298,5 +305,5 @@ document.addEventListener('DOMContentLoaded', () => {
                 <p>Please check browser console for details: ${error.message}</p>
             </div>
         `;
-    }
+    });
 });
