@@ -917,6 +917,14 @@ body.sidebar-minimized .sidebar-minimize svg {
     }
 }
 
+/* Table full width when sidebar is minimized */
+@media (min-width: 769px) {
+    body.sidebar-minimized .table {
+        width: 100%;
+        min-width: unset;
+    }
+}
+
 .table th,
 .table td {
     padding: 14px 16px;
