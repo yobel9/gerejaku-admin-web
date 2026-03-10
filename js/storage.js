@@ -2,6 +2,9 @@
 // Church Admin - Storage Adapter
 // ============================================
 
+// Import Supabase Client (assuming it's loaded globally or via a script tag)
+// For local development, you might add <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
 class LocalStorageAdapter {
     getItem(key) {
         return localStorage.getItem(key);
@@ -16,25 +19,102 @@ class LocalStorageAdapter {
     }
 }
 
-// Placeholder for future cloud database integration (Supabase/Firebase/etc.).
-// Keep same synchronous interface for now so app behavior does not change.
 class DatabaseAdapter {
     constructor(config = {}) {
         this.config = config;
+        this.supabase = null;
+        this.initializeSupabase();
     }
 
-    getItem(_key) {
-        // Temporary safe fallback in dev stage: still read from localStorage
-        // while keeping adapter contract ready for cloud implementation.
-        return localStorage.getItem(_key);
+    initializeSupabase() {
+        if (!this.config.url || !this.config.anonKey) {
+            console.warn('Supabase URL atau Anon Key tidak tersedia. Menggunakan fallback localStorage.');
+            return;
+        }
+        if (typeof supabase === 'undefined') {
+            console.error('Supabase client library tidak ditemukan. Pastikan <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script> dimuat.');
+            return;
+        }
+        try {
+            this.supabase = supabase.createClient(this.config.url, this.config.anonKey);
+            console.log('Supabase client diinisialisasi.', this.config.url);
+        } catch (error) {
+            console.error('Gagal menginisialisasi Supabase client:', error.message);
+            this.supabase = null;
+        }
     }
 
-    setItem(_key, _value) {
-        localStorage.setItem(_key, _value);
+    async getItem(key) {
+        if (!this.supabase || !this.config.table) {
+            // Fallback to localStorage if Supabase is not ready
+            return localStorage.getItem(key);
+        }
+        try {
+            const { data, error } = await this.supabase
+                .from(this.config.table)
+                .select('payload')
+                .eq('id', key)
+                .single();
+
+            if (error && error.code === 'PGRST116') { // No rows found
+                return null;
+            } else if (error) {
+                throw error;
+            }
+            return data?.payload ? JSON.stringify(data.payload) : null;
+        } catch (error) {
+            console.error(`Gagal mengambil item '${key}' dari Supabase:`, error.message);
+            // Fallback to localStorage on error
+            return localStorage.getItem(key);
+        }
     }
 
-    removeItem(_key) {
-        localStorage.removeItem(_key);
+    async setItem(key, value) {
+        if (!this.supabase || !this.config.table) {
+            // Fallback to localStorage if Supabase is not ready
+            localStorage.setItem(key, value);
+            return;
+        }
+        try {
+            const payload = {
+                id: key,
+                payload: JSON.parse(value),
+                updated_at: new Date().toISOString()
+            };
+            const { error } = await this.supabase
+                .from(this.config.table)
+                .upsert(payload, { onConflict: 'id' });
+
+            if (error) {
+                throw error;
+            }
+        } catch (error) {
+            console.error(`Gagal menyimpan item '${key}' ke Supabase:`, error.message);
+            // Fallback to localStorage on error
+            localStorage.setItem(key, value);
+        }
+    }
+
+    async removeItem(key) {
+        if (!this.supabase || !this.config.table) {
+            // Fallback to localStorage if Supabase is not ready
+            localStorage.removeItem(key);
+            return;
+        }
+        try {
+            const { error } = await this.supabase
+                .from(this.config.table)
+                .delete()
+                .eq('id', key);
+
+            if (error) {
+                throw error;
+            }
+        } catch (error) {
+            console.error(`Gagal menghapus item '${key}' dari Supabase:`, error.message);
+            // Fallback to localStorage on error
+            localStorage.removeItem(key);
+        }
     }
 }
 
@@ -100,7 +180,7 @@ const StorageService = {
             ...config
         };
         localStorage.setItem(this.configKey, JSON.stringify(next));
-        this.adapter = null;
+        this.adapter = null; // Re-create adapter with new config
         return next;
     },
 
@@ -201,12 +281,13 @@ const StorageService = {
             return new AdapterClass();
         } catch (error) {
             // Safety fallback: never block app startup in dev.
+            console.error('Gagal membuat adapter. Menggunakan LocalStorageAdapter:', error.message);
             return new LocalStorageAdapter();
         }
     },
 
     init() {
-        if (!this.adapter) {
+        if (!this.adapter || this.adapter.config !== this.getDatabaseConfig()) { // Re-initialize if config changed
             this.adapter = this.createAdapter();
         }
     },
@@ -237,16 +318,23 @@ const StorageService = {
         if (!this.isDatabaseConfigReady()) {
             throw new Error('Konfigurasi database belum lengkap.');
         }
-        const url = `${this.getSupabaseBaseUrl()}?select=id&limit=1`;
-        const res = await fetch(url, {
-            method: 'GET',
-            headers: this.getSupabaseHeaders()
-        });
-        if (!res.ok) {
-            const message = await res.text();
-            throw new Error(message || 'Gagal koneksi ke Supabase.');
+        // Attempt to select a non-existent row to test connection and table access
+        // Supabase will return an error if table doesn't exist or connection fails
+        const config = this.getDatabaseConfig();
+        const client = supabase.createClient(config.url, config.anonKey);
+        try {
+            const { data, error } = await client
+                .from(config.table)
+                .select('id')
+                .limit(1);
+
+            if (error && error.code !== 'PGRST116') { // PGRST116 means no rows found, which is fine for a test
+                throw error;
+            }
+            return true;
+        } catch (error) {
+            throw new Error(`Gagal koneksi atau akses tabel ke Supabase: ${error.message}`);
         }
-        return true;
     },
 
     getSharedStoragePayload() {
@@ -280,25 +368,21 @@ const StorageService = {
             throw new Error('Konfigurasi database belum lengkap.');
         }
 
-        const payload = [{
+        const payload = {
             id: this.sharedConfigId,
             payload: this.getSharedStoragePayload(),
             updated_at: new Date().toISOString()
-        }];
+        };
 
-        const url = `${this.getSupabaseBaseUrl()}?on_conflict=id`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-                ...this.getSupabaseHeaders(),
-                Prefer: 'resolution=merge-duplicates,return=representation'
-            },
-            body: JSON.stringify(payload)
-        });
+        const config = this.getDatabaseConfig();
+        const client = supabase.createClient(config.url, config.anonKey);
 
-        if (!res.ok) {
-            const message = await res.text();
-            throw new Error(message || 'Gagal menyimpan pengaturan shared.');
+        const { error } = await client
+            .from(config.table)
+            .upsert(payload, { onConflict: 'id' });
+
+        if (error) {
+            throw new Error(error.message || 'Gagal menyimpan pengaturan shared.');
         }
         return true;
     },
@@ -308,26 +392,28 @@ const StorageService = {
             throw new Error('Konfigurasi database belum lengkap.');
         }
 
-        const url = `${this.getSupabaseBaseUrl()}?id=eq.${encodeURIComponent(this.sharedConfigId)}&select=payload,updated_at&limit=1`;
-        const res = await fetch(url, {
-            method: 'GET',
-            headers: this.getSupabaseHeaders()
-        });
+        const config = this.getDatabaseConfig();
+        const client = supabase.createClient(config.url, config.anonKey);
 
-        if (!res.ok) {
-            const message = await res.text();
-            throw new Error(message || 'Gagal mengambil pengaturan shared.');
+        const { data, error } = await client
+            .from(config.table)
+            .select('payload,updated_at')
+            .eq('id', this.sharedConfigId)
+            .single();
+
+        if (error && error.code === 'PGRST116') { // No rows found
+            return { found: false };
+        } else if (error) {
+            throw new Error(error.message || 'Gagal mengambil pengaturan shared.');
         }
-
-        const rows = await res.json();
-        if (!Array.isArray(rows) || !rows[0] || !rows[0].payload) {
+        if (!data || !data.payload) {
             return { found: false };
         }
 
-        this.applySharedStoragePayload(rows[0].payload);
+        this.applySharedStoragePayload(data.payload);
         return {
             found: true,
-            payload: rows[0].payload
+            payload: data.payload
         };
     },
 
@@ -349,31 +435,27 @@ const StorageService = {
         if (!this.isDatabaseConfigReady()) {
             throw new Error('Konfigurasi database belum lengkap.');
         }
-        const localData = this.getJSON(storageKey, null);
+        const localData = await this.getJSON(storageKey, null);
         if (!localData) {
             throw new Error('Data lokal tidak ditemukan.');
         }
 
-        const payload = [{
+        const payload = {
             id: storageKey,
             payload: localData,
             updated_at: new Date().toISOString()
-        }];
+        };
 
-        const url = `${this.getSupabaseBaseUrl()}?on_conflict=id`;
-        const res = await fetch(url, {
-            method: 'POST',
-            headers: {
-                ...this.getSupabaseHeaders(),
-                Prefer: 'resolution=merge-duplicates,return=representation'
-            },
-            body: JSON.stringify(payload)
-        });
+        const config = this.getDatabaseConfig();
+        const client = supabase.createClient(config.url, config.anonKey);
 
-        if (!res.ok) {
-            const message = await res.text();
-            this.markSyncError(message || 'Push data ke database gagal.');
-            throw new Error(message || 'Push data ke database gagal.');
+        const { error } = await client
+            .from(config.table)
+            .upsert(payload, { onConflict: 'id' });
+
+        if (error) {
+            this.markSyncError(error.message || 'Push data ke database gagal.');
+            throw new Error(error.message || 'Push data ke database gagal.');
         }
         this.markPushSuccess();
         return true;
@@ -387,29 +469,33 @@ const StorageService = {
         if (!force && this.getSyncMeta().dirty) {
             throw new Error('Ada perubahan lokal yang belum tersinkron. Push dulu atau gunakan force pull.');
         }
-        const url = `${this.getSupabaseBaseUrl()}?id=eq.${encodeURIComponent(storageKey)}&select=payload,updated_at&limit=1`;
-        const res = await fetch(url, {
-            method: 'GET',
-            headers: this.getSupabaseHeaders()
-        });
 
-        if (!res.ok) {
-            const message = await res.text();
-            this.markSyncError(message || 'Pull data dari database gagal.');
-            throw new Error(message || 'Pull data dari database gagal.');
+        const config = this.getDatabaseConfig();
+        const client = supabase.createClient(config.url, config.anonKey);
+
+        const { data, error } = await client
+            .from(config.table)
+            .select('payload,updated_at')
+            .eq('id', storageKey)
+            .single();
+
+        if (error && error.code === 'PGRST116') { // No rows found
+            throw new Error('Data tidak ditemukan di database.');
+        } else if (error) {
+            this.markSyncError(error.message || 'Pull data dari database gagal.');
+            throw new Error(error.message || 'Pull data dari database gagal.');
         }
-
-        const rows = await res.json();
-        if (!Array.isArray(rows) || !rows[0] || !rows[0].payload) {
+        if (!data || !data.payload) {
             throw new Error('Data tidak ditemukan di database.');
         }
-        const row = rows[0];
+
+        const row = data;
         const remoteUpdatedAt = row.updated_at || '';
         const lastRemoteUpdatedAt = this.getSyncMeta().lastRemoteUpdatedAt || '';
         const changed = !(remoteUpdatedAt && lastRemoteUpdatedAt && remoteUpdatedAt === lastRemoteUpdatedAt);
 
         if (changed) {
-            this.setJSON(storageKey, row.payload);
+            await this.setJSON(storageKey, row.payload);
         }
         this.markPullSuccess(remoteUpdatedAt);
         return { row, changed };
@@ -422,9 +508,9 @@ const StorageService = {
         if (this.syncTimer) {
             clearTimeout(this.syncTimer);
         }
-        this.syncTimer = setTimeout(() => {
+        this.syncTimer = setTimeout(async () => {
             this.syncTimer = null;
-            this.performAutoPush(storageKey);
+            await this.performAutoPush(storageKey);
         }, delayMs);
     },
 
@@ -462,29 +548,57 @@ const StorageService = {
         this.adapter = adapter;
     },
 
-    has(key) {
-        this.init();
-        return this.adapter.getItem(key) !== null;
+    // Fixed async methods with proper error handling
+    async has(key) {
+        try {
+            this.init();
+            const value = await this.adapter.getItem(key);
+            return value !== null;
+        } catch (error) {
+            console.error(`Gagal mengecek key '${key}':`, error.message);
+            return false;
+        }
     },
 
-    getJSON(key, fallback = null) {
-        this.init();
-        const raw = this.adapter.getItem(key);
-        if (!raw) return fallback;
+    async getJSON(key, fallback = null) {
         try {
-            return JSON.parse(raw);
+            this.init();
+            const raw = await this.adapter.getItem(key);
+            if (!raw) return fallback;
+            try {
+                return JSON.parse(raw);
+            } catch (error) {
+                console.error(`Gagal parsing JSON untuk key '${key}':`, error.message);
+                return fallback;
+            }
         } catch (error) {
+            console.error(`Gagal mengambil key '${key}':`, error.message);
             return fallback;
         }
     },
 
-    setJSON(key, value) {
-        this.init();
-        this.adapter.setItem(key, JSON.stringify(value));
+    async setJSON(key, value) {
+        try {
+            this.init();
+            await this.adapter.setItem(key, JSON.stringify(value));
+        } catch (error) {
+            console.error(`Gagal menyimpan key '${key}':`, error.message);
+            throw error;
+        }
     },
 
-    remove(key) {
-        this.init();
-        this.adapter.removeItem(key);
+    async remove(key) {
+        try {
+            this.init();
+            await this.adapter.removeItem(key);
+        } catch (error) {
+            console.error(`Gagal menghapus key '${key}':`, error.message);
+            throw error;
+        }
     }
 };
+
+// Initialize storage service on load
+document.addEventListener('DOMContentLoaded', () => {
+    StorageService.init();
+});
