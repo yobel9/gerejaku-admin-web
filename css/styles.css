@@ -126,6 +126,27 @@
     color: #90cdf4;
 }
 
+/* Dark Mode - Stat Icon Overrides */
+[data-theme="dark"] .stat-icon.primary {
+    background: rgba(49, 130, 206, 0.25);
+    color: #63b3ed;
+}
+
+[data-theme="dark"] .stat-icon.accent {
+    background: rgba(72, 187, 120, 0.25);
+    color: #68d391;
+}
+
+[data-theme="dark"] .stat-icon.warning {
+    background: rgba(237, 137, 54, 0.25);
+    color: #f6ad55;
+}
+
+[data-theme="dark"] .stat-icon.danger {
+    background: rgba(229, 62, 62, 0.25);
+    color: #feb2b2;
+}
+
 /* Reset & Base */
 *, *::before, *::after {
     box-sizing: border-box;
