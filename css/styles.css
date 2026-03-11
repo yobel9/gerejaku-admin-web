@@ -67,6 +67,18 @@
     --shadow-lg: 0 10px 15px rgba(0,0,0,0.3), 0 4px 6px rgba(0,0,0,0.2);
 }
 
+/* Dark Mode - Button Overrides */
+[data-theme="dark"] .btn-secondary {
+    background: #2d3748;
+    color: #f7fafc;
+    border-color: #4a5568;
+}
+
+[data-theme="dark"] .btn-secondary:hover {
+    background: #4a5568;
+    border-color: #718096;
+}
+
 /* Reset & Base */
 *, *::before, *::after {
     box-sizing: border-box;
